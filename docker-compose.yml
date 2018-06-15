@@ -1,0 +1,147 @@
+version: '3.8'
+
+services:
+  # Spark Master
+  spark-master:
+    image: bitnami/spark:3.5.0
+    container_name: spark-master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+      - "4040:4040"
+    volumes:
+      - ./data:/data
+      - ./models:/models
+    networks:
+      - ml-pipeline
+
+  # Spark Worker 1
+  spark-worker-1:
+    image: bitnami/spark:3.5.0
+    container_name: spark-worker-1
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=2
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    depends_on:
+      - spark-master
+    volumes:
+      - ./data:/data
+      - ./models:/models
+    networks:
+      - ml-pipeline
+
+  # Spark Worker 2
+  spark-worker-2:
+    image: bitnami/spark:3.5.0
+    container_name: spark-worker-2
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=2
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    depends_on:
+      - spark-master
+    volumes:
+      - ./data:/data
+      - ./models:/models
+    networks:
+      - ml-pipeline
+
+  # MLflow Tracking Server
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    container_name: mlflow-server
+    command: >
+      mlflow server
+      --backend-store-uri postgresql://mlflow:mlflow@postgres:5432/mlflow
+      --default-artifact-root /mlflow/artifacts
+      --host 0.0.0.0
+      --port 5000
+    ports:
+      - "5000:5000"
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    depends_on:
+      - postgres
+    volumes:
+      - mlflow-artifacts:/mlflow/artifacts
+    networks:
+      - ml-pipeline
+
+  # PostgreSQL for MLflow
+  postgres:
+    image: postgres:15
+    container_name: mlflow-postgres
+    environment:
+      - POSTGRES_USER=mlflow
+      - POSTGRES_PASSWORD=mlflow
+      - POSTGRES_DB=mlflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - ml-pipeline
+
+  # ML Pipeline API
+  ml-api:
+    build: .
+    container_name: ml-pipeline-api
+    environment:
+      - CONFIG_PATH=/app/config/pipeline_config.yaml
+      - SPARK_MASTER=spark://spark-master:7077
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    ports:
+      - "8000:8000"
+    depends_on:
+      - spark-master
+      - mlflow
+    volumes:
+      - ./src:/app/src
+      - ./api:/app/api
+      - ./config:/app/config
+      - ./data:/data
+      - ./models:/models
+    networks:
+      - ml-pipeline
+
+  # Jupyter Notebook for Exploration
+  jupyter:
+    image: jupyter/pyspark-notebook:latest
+    container_name: ml-jupyter
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - SPARK_MASTER=spark://spark-master:7077
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./data:/data
+      - ./models:/models
+    networks:
+      - ml-pipeline
+
+networks:
+  ml-pipeline:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  mlflow-artifacts:

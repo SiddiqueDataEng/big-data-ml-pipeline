@@ -1,0 +1,140 @@
+# ML Pipeline Configuration
+
+# Spark Configuration
+spark:
+  app_name: "Big Data ML Pipeline"
+  master: "local[*]"  # Use "spark://host:port" for cluster mode
+  executor_memory: "4g"
+  driver_memory: "2g"
+  executor_cores: 4
+  
+# Data Configuration
+data:
+  input_path: "s3://data-lake/raw/training_data.parquet"
+  output_path: "s3://data-lake/models/"
+  validation_split: 0.2
+  test_split: 0.1
+  
+# Feature Engineering
+features:
+  columns:
+    - feature_1
+    - feature_2
+    - feature_3
+    - feature_4
+    - feature_5
+  target: "label"
+  
+  # Time-based features
+  time_features:
+    enabled: true
+    timestamp_col: "timestamp"
+    
+  # Aggregation features
+  aggregations:
+    enabled: true
+    group_cols:
+      - customer_id
+    agg_cols:
+      - amount
+      - quantity
+      
+  # Ratio features
+  ratios:
+    enabled: true
+    numerator_cols:
+      - revenue
+    denominator_cols:
+      - cost
+      
+  # Missing value handling
+  missing_values:
+    strategy: "mean"  # Options: mean, median, drop
+    
+  # Outlier detection
+  outliers:
+    enabled: true
+    threshold: 3.0
+    
+# Model Configuration
+model:
+  algorithm: "random_forest"  # Options: random_forest, logistic_regression, gbt, linear_regression, kmeans
+  task_type: "classification"  # Options: classification, regression, clustering
+  
+  # Hyperparameters
+  hyperparameters:
+    # Random Forest
+    numTrees: 100
+    maxDepth: 10
+    minInstancesPerNode: 1
+    
+    # Logistic Regression
+    maxIter: 100
+    regParam: 0.01
+    elasticNetParam: 0.0
+    
+    # GBT
+    maxBins: 32
+    subsamplingRate: 1.0
+    
+    # K-Means
+    k: 5
+    maxIter: 20
+    
+# Hyperparameter Tuning
+tuning:
+  enabled: false
+  method: "cross_validation"  # Options: cross_validation, train_validation_split
+  num_folds: 3
+  parallelism: 4
+  
+  # Parameter grid
+  param_grid:
+    random_forest:
+      numTrees: [50, 100, 200]
+      maxDepth: [5, 10, 15]
+    logistic_regression:
+      regParam: [0.01, 0.1, 1.0]
+      elasticNetParam: [0.0, 0.5, 1.0]
+      
+# Evaluation Metrics
+evaluation:
+  classification:
+    - accuracy
+    - precision
+    - recall
+    - f1
+    - auc_roc
+    - auc_pr
+  regression:
+    - rmse
+    - mae
+    - r2
+  clustering:
+    - silhouette
+    - davies_bouldin
+    
+# MLflow Configuration
+mlflow:
+  tracking_uri: "http://localhost:5000"
+  experiment_name: "ml_pipeline"
+  artifact_location: "s3://mlflow-artifacts/"
+  
+# Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+# Performance Optimization
+optimization:
+  cache_data: true
+  repartition: true
+  num_partitions: 200
+  broadcast_threshold: 10485760  # 10MB
+  
+# Deployment
+deployment:
+  model_registry: "mlflow"
+  serving_endpoint: "http://localhost:8000"
+  batch_size: 1000
+  timeout: 300
